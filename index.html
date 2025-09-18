@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masonry Cost Estimator</title>
+  <!-- Tailwind via CDN (no build step) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="description" content="Quick masonry cost estimator for CMU, brick veneer, and stone veneer jobs.">
+  <style>
+    .card{ @apply rounded-2xl border bg-white/90 shadow-sm; }
+    .label{ @apply text-sm text-gray-600; }
+    .value{ @apply text-xl font-semibold; }
+    .row{ @apply flex justify-between py-1; }
+    .hint{ @apply text-xs text-gray-500; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-6xl mx-auto p-4 md:p-8">
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <h1 class="text-2xl md:text-3xl font-semibold tracking-tight flex items-center gap-3">
+        <span>🧱</span> Masonry Cost Estimator
+      </h1>
+      <div class="flex items-center gap-2">
+        <button id="exportCsvBtn" class="px-4 py-2 rounded-2xl bg-black text-white hover:opacity-90">Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Project / System -->
+    <div class="card mb-6 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="md:col-span-2">
+          <label class="label">Project name</label>
+          <input id="project" class="w-full border rounded-xl px-3 py-2" placeholder="e.g., Elm Ave Retaining Wall" value="Untitled Masonry Job"/>
+        </div>
+        <div>
+          <label class="label">System</label>
+          <select id="system" class="w-full border rounded-xl px-3 py-2">
+            <option value="CMU">CMU (8x8x16)</option>
+            <option value="BRICK">Brick veneer</option>
+            <option value="STONE">Stone veneer</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Waste (%)</label>
+          <input id="wastePct" type="number" class="w-full border rounded-xl px-3 py-2" value="7"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Geometry & Productivity -->
+      <div class="card lg:col-span-2 p-6">
+        <h2 class="text-lg font-medium mb-4">Wall Geometry & Productivity</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="label">Length (ft)</label>
+            <input id="lengthFt" type="number" class="w-full border rounded-xl px-3 py-2" value="50"/>
+          </div>
+          <div>
+            <label class="label">Height (ft)</label>
+            <input id="heightFt" type="number" class="w-full border rounded-xl px-3 py-2" value="8"/>
+          </div>
+          <div>
+            <label class="label">Openings (sqft)</label>
+            <input id="openingsSqft" type="number" class="w-full border rounded-xl px-3 py-2" value="20"/>
+          </div>
+          <div class="md:col-span-3">
+            <label class="label">OR net wall area (sqft) override</label>
+            <input id="directArea" type="number" class="w-full border rounded-xl px-3 py-2" placeholder="Leave blank to use L × H − openings"/>
+          </div>
+
+          <div class="md:col-span-3 border-t my-2"></div>
+
+          <div>
+            <label class="label">Crew size (workers)</label>
+            <input id="crewSize" type="number" class="w-full border rounded-xl px-3 py-2" value="2"/>
+          </div>
+          <div>
+            <label class="label">Labor rate ($/hr each)</label>
+            <input id="laborRate" type="number" class="w-full border rounded-xl px-3 py-2" value="55"/>
+          </div>
+          <div>
+            <label class="label">Productivity (sqft/hr per crew)</label>
+            <input id="productivitySqftHr" type="number" class="w-full border rounded-xl px-3 py-2" value="20"/>
+          </div>
+          <div>
+            <label class="label">Hours per day</label>
+            <input id="hoursPerDay" type="number" class="w-full border rounded-xl px-3 py-2" value="8"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Materials & Adds -->
+      <div class="card p-6">
+        <h2 class="text-lg font-medium mb-4">Material & Adds</h2>
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="label">Unit cost ($/unit or $/sqft)</label>
+            <input id="unitCost" type="number" class="w-full border rounded-xl px-3 py-2" value="2.25"/>
+            <div class="hint">CMU uses $/block, brick uses $/brick, stone uses $/sqft</div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="label">Mortar bag cost ($)</label>
+              <input id="mortarBagCost" type="number" class="w-full border rounded-xl px-3 py-2" value="8"/>
+            </div>
+            <div>
+              <label class="label">Mortar bags per unit</label>
+              <input id="mortarBagsPerUnit" type="number" class="w-full border rounded-xl px-3 py-2" value="0.076923"/> 
+            </div>
+          </div>
+
+          <!-- CMU-only -->
+          <div id="cmuExtras" class="space-y-3">
+            <div class="font-medium mt-2">CMU Rebar & Grout</div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="label">Vertical spacing (ft)</label>
+                <input id="verticalRebarSpacingFt" type="number" class="w-full border rounded-xl px-3 py-2" value="4"/>
+              </div>
+              <div>
+                <label class="label">Rebar cost ($/ft)</label>
+                <input id="rebarCostPerFt" type="number" class="w-full border rounded-xl px-3 py-2" value="0.8"/>
+              </div>
+              <div>
+                <label class="label">Horizontal joint every (courses)</label>
+                <input id="horizontalJointEveryCourses" type="number" class="w-full border rounded-xl px-3 py-2" value="2"/>
+              </div>
+              <div>
+                <label class="label">Course height (in)</label>
+                <input id="courseHeightIn" type="number" class="w-full border rounded-xl px-3 py-2" value="8"/>
+              </div>
+              <div>
+                <label class="label">Grout fill (% of cells)</label>
+                <input id="groutFillPct" type="number" class="w-full border rounded-xl px-3 py-2" value="25"/>
+              </div>
+              <div>
+                <label class="label">Grout cost ($/yd³)</label>
+                <input id="groutCostPerYd3" type="number" class="w-full border rounded-xl px-3 py-2" value="180"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- Veneer-only -->
+          <div id="veneerExtras" class="space-y-3 hidden">
+            <div class="font-medium mt-2">Veneer Extras</div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="label">Ties per sqft</label>
+                <input id="tiesPerSqft" type="number" class="w-full border rounded-xl px-3 py-2" value="0.5"/>
+              </div>
+              <div>
+                <label class="label">Tie cost ($/ea)</label>
+                <input id="tieCost" type="number" class="w-full border rounded-xl px-3 py-2" value="0.5"/>
+              </div>
+              <div>
+                <label class="label">Flashing cost ($/LF)</label>
+                <input id="flashingCostPerFt" type="number" class="w-full border rounded-xl px-3 py-2" value="2"/>
+              </div>
+              <div>
+                <label class="label">Control joint cost ($/LF)</label>
+                <input id="controlJointCostPerFt" type="number" class="w-full border rounded-xl px-3 py-2" value="3"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t my-2"></div>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="label">Scaffold ($/day)</label>
+              <input id="scaffoldPerDay" type="number" class="w-full border rounded-xl px-3 py-2" value="120"/>
+            </div>
+            <div>
+              <label class="label">Mixer ($/day)</label>
+              <input id="mixerPerDay" type="number" class="w-full border rounded-xl px-3 py-2" value="45"/>
+            </div>
+            <div>
+              <label class="label">Delivery (flat $)</label>
+              <input id="deliveryFee" type="number" class="w-full border rounded-xl px-3 py-2" value="150"/>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="label">Markup (%)</label>
+              <input id="markupPct" type="number" class="w-full border rounded-xl px-3 py-2" value="15"/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quantities & Costs -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+      <div class="card lg:col-span-2 p-6">
+        <h2 class="text-lg font-medium mb-4">Quantities</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm" id="quantities">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+      <div class="card p-6">
+        <h2 class="text-lg font-medium mb-4">Costs</h2>
+        <div id="costs" class="text-sm space-y-1">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-6 p-6 text-sm text-gray-600">
+      Assumptions are adjustable and for conceptual estimating only. Update yields/prices to match your market and crew. 
+      <div class="mt-2 text-gray-500 text-xs">Tip: Switch the <b>System</b> to see CMU vs Brick vs Stone logic.</div>
+    </div>
+  </div>
+
+<script>
+// --- Utilities ---
+const num = (v, d=0) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
+const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+const fmt = (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const money = (v) => Number(v).toLocaleString(undefined, { style: "currency", currency: "USD" });
+
+const PRESETS = {
+  CMU: { description: "8x8x16 CMU (hollow)", piecesPerSqft: 1.125, unitLabel: "blocks", mortarBagsPerUnit: 1/13, unitCost: 2.25, includeRebar: true, includeGrout: true, veneerExtras: false },
+  BRICK: { description: "Modular brick veneer", piecesPerSqft: 7, unitLabel: "bricks", mortarBagsPerUnit: 1/40, unitCost: 0.8, includeRebar: false, includeGrout: false, veneerExtras: true },
+  STONE: { description: "Stone veneer (sold by sqft)", piecesPerSqft: 1, unitLabel: "sqft", mortarBagsPerUnit: 1/20, unitCost: 12, includeRebar: false, includeGrout: false, veneerExtras: true },
+};
+
+// Elements
+const els = {};
+["project","system","lengthFt","heightFt","openingsSqft","directArea","wastePct",
+ "laborRate","crewSize","productivitySqftHr","hoursPerDay",
+ "unitCost","mortarBagCost","mortarBagsPerUnit",
+ "rebarCostPerFt","verticalRebarSpacingFt","horizontalJointEveryCourses","courseHeightIn",
+ "groutCostPerYd3","groutFillPct",
+ "tiesPerSqft","tieCost","flashingCostPerFt","controlJointCostPerFt",
+ "scaffoldPerDay","mixerPerDay","deliveryFee","markupPct"
+].forEach(id => els[id] = document.getElementById(id));
+
+const cmuExtras = document.getElementById("cmuExtras");
+const veneerExtras = document.getElementById("veneerExtras");
+const quantities = document.getElementById("quantities");
+const costs = document.getElementById("costs");
+const exportCsvBtn = document.getElementById("exportCsvBtn");
+
+function syncPresetUI() {
+  const system = els.system.value;
+  const preset = PRESETS[system];
+  if (system === "CMU") {
+    cmuExtras.classList.remove("hidden");
+    veneerExtras.classList.add("hidden");
+    els.unitCost.value = preset.unitCost;
+    els.mortarBagsPerUnit.value = preset.mortarBagsPerUnit;
+  } else if (system === "BRICK") {
+    cmuExtras.classList.add("hidden");
+    veneerExtras.classList.remove("hidden");
+    els.unitCost.value = preset.unitCost;
+    els.mortarBagsPerUnit.value = preset.mortarBagsPerUnit;
+  } else {
+    cmuExtras.classList.add("hidden");
+    veneerExtras.classList.remove("hidden");
+    els.unitCost.value = preset.unitCost;
+    els.mortarBagsPerUnit.value = preset.mortarBagsPerUnit;
+  }
+  recalc();
+}
+
+function recalc() {
+  const system = els.system.value;
+  const preset = PRESETS[system];
+
+  const L = num(els.lengthFt.value);
+  const H = num(els.heightFt.value);
+  const OA = clamp(num(els.openingsSqft.value), 0, L*H);
+  const grossArea = num(els.directArea.value) > 0 ? num(els.directArea.value) : Math.max(L*H - OA, 0);
+  const waste = 1 + num(els.wastePct.value)/100;
+
+  const baseUnits = grossArea * preset.piecesPerSqft;
+  const unitsWithWaste = baseUnits * waste;
+  const mortarBags = unitsWithWaste * num(els.mortarBagsPerUnit.value);
+
+  // Labor
+  const crewSqftHr = num(els.productivitySqftHr.value);
+  const crew = Math.max(1, Math.round(num(els.crewSize.value, 1)));
+  const totalCrewHours = crewSqftHr > 0 ? grossArea / crewSqftHr : 0; // crew hours (productivity is for the crew as a whole)
+  const calendarHours = totalCrewHours;
+  const days = num(els.hoursPerDay.value) > 0 ? calendarHours / num(els.hoursPerDay.value) : 0;
+
+  // Materials
+  const materialUnitsCost = unitsWithWaste * num(els.unitCost.value);
+  const mortarCost = mortarBags * num(els.mortarBagCost.value);
+
+  // CMU extras
+  let rebarFt=0, rebarCost=0, groutYd3=0, groutCost=0, horizReinfFt=0;
+  if (preset.includeRebar) {
+    const vertSpacing = Math.max(0.01, num(els.verticalRebarSpacingFt.value, 4));
+    const verticalBarsCount = Math.floor(L / vertSpacing) + 1;
+    rebarFt = verticalBarsCount * H;
+    rebarCost = rebarFt * num(els.rebarCostPerFt.value);
+
+    const courseHeightFt = num(els.courseHeightIn.value, 8) / 12;
+    const courseCount = courseHeightFt > 0 ? Math.ceil(H / courseHeightFt) : 0;
+    const freq = Math.max(1, Math.round(num(els.horizontalJointEveryCourses.value, 2)));
+    const reinforcedCourses = Math.floor(courseCount / freq);
+    horizReinfFt = reinforcedCourses * L * 2;
+
+    const groutPerSqftYd3At100 = 0.0185;
+    groutYd3 = grossArea * groutPerSqftYd3At100 * (num(els.groutFillPct.value, 0)/100);
+    groutCost = groutYd3 * num(els.groutCostPerYd3.value);
+  }
+
+  // Veneer extras
+  let ties=0, tiesCost=0, flashingLF=0, flashingCost=0, controlJointLF=0, controlJointCost=0;
+  if (preset.veneerExtras) {
+    ties = grossArea * num(els.tiesPerSqft.value);
+    tiesCost = ties * num(els.tieCost.value);
+    flashingLF = L;
+    flashingCost = flashingLF * num(els.flashingCostPerFt.value);
+    controlJointLF = Math.floor(L/24) * H;
+    controlJointCost = controlJointLF * num(els.controlJointCostPerFt.value);
+  }
+
+  // Equipment & totals
+  const estDays = Math.max(1, days);
+  const equipmentCost = estDays * (num(els.scaffoldPerDay.value) + num(els.mixerPerDay.value));
+  const laborCost = calendarHours * num(els.laborRate.value) * crew;
+  const materialsSubtotal = materialUnitsCost + mortarCost + rebarCost + groutCost + tiesCost + flashingCost + controlJointCost;
+  const directSubtotal = materialsSubtotal + laborCost + equipmentCost + num(els.deliveryFee.value);
+  const markup = directSubtotal * (num(els.markupPct.value)/100);
+  const total = directSubtotal + markup;
+
+  // Render quantities
+  const q = [];
+  q.push(cardKV("Net wall area", fmt(grossArea) + " sqft"));
+  q.push(cardKV(preset.unitLabel === "sqft" ? "Material (sqft)" : `${preset.unitLabel} incl. waste`, `${fmt(unitsWithWaste)} ${preset.unitLabel}`));
+  q.push(cardKV("Mortar bags", fmt(mortarBags)));
+  if (preset.includeRebar) {
+    q.push(cardKV("Rebar", fmt(rebarFt) + " ft"));
+    q.push(cardKV("Grout", fmt(groutYd3) + " yd³"));
+    q.push(cardKV("Horiz. reinforcement", fmt(horizReinfFt) + " ft"));
+  }
+  if (preset.veneerExtras) {
+    q.push(cardKV("Ties", fmt(ties)));
+    q.push(cardKV("Flashing", fmt(flashingLF) + " LF"));
+    q.push(cardKV("Control joints", fmt(controlJointLF) + " LF"));
+  }
+  q.push(cardKV("Labor (crew hours)", fmt(calendarHours)));
+  q.push(cardKV("Estimated days", fmt(Math.max(1, days))));
+  quantities.innerHTML = q.join("");
+
+  // Render costs
+  const c = [];
+  c.push(row("Materials", money(materialsSubtotal)));
+  c.push(row("Labor", money(laborCost)));
+  c.push(row("Equipment", money(equipmentCost)));
+  c.push(row("Delivery", money(num(els.deliveryFee.value))));
+  c.push(`<div class="border-t my-2"></div>`);
+  c.push(rowStrong("Direct subtotal", money(directSubtotal)));
+  c.push(row(`Markup (${num(els.markupPct.value)}%)`, money(markup)));
+  c.push(rowBig("Total", money(total)));
+  costs.innerHTML = c.join("");
+
+  // Persist in window for CSV
+  window.__calc = { grossArea, unitsWithWaste, mortarBags, rebarFt, groutYd3, horizReinfFt, ties, flashingLF, controlJointLF, calendarHours, days, materialsSubtotal, laborCost, equipmentCost, directSubtotal, markup, total };
+}
+
+function cardKV(label, value) {
+  return `<div class="p-3 rounded-2xl border"><div class="text-gray-500">${label}</div><div class="value">${value}</div></div>`;
+}
+function row(label, value){ return `<div class="row"><span>${label}</span><span>${value}</span></div>`; }
+function rowStrong(label, value){ return `<div class="row font-medium"><span>${label}</span><span>${value}</span></div>`; }
+function rowBig(label, value){ return `<div class="row text-lg font-semibold"><span>${label}</span><span>${value}</span></div>`; }
+
+function downloadCSV(filename, rows) {
+  const process = row => row.map(x => `"${String(x ?? "").replaceAll('"','""')}"`).join(",");
+  const csv = rows.map(process).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+exportCsvBtn.addEventListener("click", () => {
+  const system = els.system.value;
+  const preset = PRESETS[system];
+  const calc = window.__calc || {};
+  const rows = [];
+  rows.push(["Project", els.project.value]);
+  rows.push(["System", `${system} – ${preset.description}`]);
+  rows.push(["Wall Length (ft)", els.lengthFt.value]);
+  rows.push(["Wall Height (ft)", els.heightFt.value]);
+  rows.push(["Openings (sqft)", els.openingsSqft.value]);
+  rows.push(["Net Wall Area (sqft)", fmt(calc.grossArea)]);
+  rows.push(["Waste (%)", els.wastePct.value]);
+  rows.push(["Units incl. waste", fmt(calc.unitsWithWaste)]);
+  rows.push(["Mortar bags", fmt(calc.mortarBags)]);
+  if (preset.includeRebar) {
+    rows.push(["Rebar (ft)", fmt(calc.rebarFt)]);
+    rows.push(["Grout (yd^3)", fmt(calc.groutYd3)]);
+    rows.push(["Horizontal reinforcement (ft)", fmt(calc.horizReinfFt)]);
+  }
+  if (preset.veneerExtras) {
+    rows.push(["Ties (qty)", fmt(calc.ties)]);
+    rows.push(["Flashing (LF)", fmt(calc.flashingLF)]);
+    rows.push(["Control joints (LF)", fmt(calc.controlJointLF)]);
+  }
+  rows.push(["Labor hours (crew)", fmt(calc.calendarHours)]);
+  rows.push(["Estimated days", fmt(calc.days)]);
+  rows.push(["Materials subtotal", money(calc.materialsSubtotal)]);
+  rows.push(["Labor cost", money(calc.laborCost)]);
+  rows.push(["Equipment cost", money(calc.equipmentCost)]);
+  rows.push(["Delivery", money(num(els.deliveryFee.value))]);
+  rows.push(["Direct subtotal", money(calc.directSubtotal)]);
+  rows.push(["Markup (%)", els.markupPct.value]);
+  rows.push(["Markup $", money(calc.markup)]);
+  rows.push(["Total", money(calc.total)]);
+
+  const safe = (els.project.value || "masonry_estimate").replace(/[^a-z0-9\-]/gi,"_");
+  downloadCSV(`${safe}.csv`, rows);
+});
+
+// Wire up inputs
+Object.values(els).forEach(el => {
+  if (!el) return;
+  el.addEventListener("input", recalc);
+});
+els.system.addEventListener("change", syncPresetUI);
+
+// Init
+syncPresetUI();
+recalc();
+</script>
+</body>
+</html>
