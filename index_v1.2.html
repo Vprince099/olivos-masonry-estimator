@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Masonry Cost Estimator</title>
-  <!-- Tailwind via CDN (no build step) -->
+  <title>Olivos Masonry Cost Estimator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="description" content="Quick masonry cost estimator for CMU, brick veneer, and stone veneer jobs.">
   <style>
@@ -19,7 +18,7 @@
   <div class="max-w-6xl mx-auto p-4 md:p-8">
     <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <h1 class="text-2xl md:text-3xl font-semibold tracking-tight flex items-center gap-3">
-        <span>🧱</span> Masonry Cost Estimator
+        <span>🧱</span> Olivos Masonry Cost Estimator
       </h1>
       <div class="flex items-center gap-2">
         <button id="exportCsvBtn" class="px-4 py-2 rounded-2xl bg-black text-white hover:opacity-90">Export CSV</button>
@@ -89,7 +88,49 @@
             <label class="label">Hours per day</label>
             <input id="hoursPerDay" type="number" class="w-full border rounded-xl px-3 py-2" value="8"/>
           </div>
-        </div>
+        
+          <div class="md:col-span-3 border-t my-2"></div>
+
+</div>
+<!-- Openings & Archways -->
+          <div class="space-y-3">
+            <div class="font-medium mt-2">Openings & Archways</div>
+            <!--<div class="grid grid-cols-2 gap-4">-->
+			<div class="grid grid-cols-3 md:grid-cols-3 gap-4">
+              <div>
+                <label class="label">Openings (qty)</label>
+                <input id="openingsCount" type="number" class="w-full border rounded-xl px-3 py-2" value="3"/>
+              </div>
+              <div>
+                <label class="label">Avg opening width (ft)</label>
+                <input id="openingWidthFt" type="number" class="w-full border rounded-xl px-3 py-2" value="3"/>
+              </div>
+              <div>
+                <label class="label">Bearing each side (in)</label>
+                <input id="lintelBearingIn" type="number" class="w-full border rounded-xl px-3 py-2" value="4"/>
+                <div class="hint">Added to each opening width for angle iron length</div>
+              </div>
+              <div>
+                <label class="label">Angle iron cost ($/LF)</label>
+                <input id="angleCostPerFt" type="number" class="w-full border rounded-xl px-3 py-2" value="11"/>
+              </div>
+              <div>
+                <label class="label">Total lintel LF (override)</label>
+                <input id="lintelLfOverride" type="number" class="w-full border rounded-xl px-3 py-2" placeholder="Optional direct LF"/>
+              </div>
+              <div></div>
+              <div>
+                <label class="label">Archways (qty)</label>
+                <input id="archQty" type="number" class="w-full border rounded-xl px-3 py-2" value="0"/>
+              </div>
+              <div>
+                <label class="label">Wood cost per archway ($)</label>
+                <input id="archWoodPerQty" type="number" class="w-full border rounded-xl px-3 py-2" value="75"/>
+              </div>
+            </div>
+          </div>
+          <div class="md:col-span-3 border-t my-2"></div>
+
       </div>
 
       <!-- Materials & Adds -->
@@ -165,8 +206,6 @@
               </div>
             </div>
           </div>
-
-          <div class="border-t my-2"></div>
           <div class="grid grid-cols-3 gap-4">
             <div>
               <label class="label">Scaffold ($/day)</label>
@@ -234,7 +273,9 @@ const els = {};
  "rebarCostPerFt","verticalRebarSpacingFt","horizontalJointEveryCourses","courseHeightIn",
  "groutCostPerYd3","groutFillPct",
  "tiesPerSqft","tieCost","flashingCostPerFt","controlJointCostPerFt",
- "scaffoldPerDay","mixerPerDay","deliveryFee","markupPct"
+ "scaffoldPerDay","mixerPerDay","deliveryFee","markupPct",
+ "openingsCount","openingWidthFt","lintelBearingIn","angleCostPerFt","lintelLfOverride",
+ "archQty","archWoodPerQty"
 ].forEach(id => els[id] = document.getElementById(id));
 
 const cmuExtras = document.getElementById("cmuExtras");
@@ -282,7 +323,7 @@ function recalc() {
   // Labor
   const crewSqftHr = num(els.productivitySqftHr.value);
   const crew = Math.max(1, Math.round(num(els.crewSize.value, 1)));
-  const totalCrewHours = crewSqftHr > 0 ? grossArea / crewSqftHr : 0; // crew hours (productivity is for the crew as a whole)
+  const totalCrewHours = crewSqftHr > 0 ? grossArea / crewSqftHr : 0; // crew hours
   const calendarHours = totalCrewHours;
   const days = num(els.hoursPerDay.value) > 0 ? calendarHours / num(els.hoursPerDay.value) : 0;
 
@@ -320,11 +361,25 @@ function recalc() {
     controlJointCost = controlJointLF * num(els.controlJointCostPerFt.value);
   }
 
+  // Angle iron for openings (lintels)
+  const openingsCount = Math.max(0, num(els.openingsCount.value));
+  const openingWidthFt = Math.max(0, num(els.openingWidthFt.value));
+  const bearingFtEachSide = Math.max(0, num(els.lintelBearingIn.value) / 12);
+  const lintelLfCalc = openingsCount * (openingWidthFt + 2 * bearingFtEachSide);
+  const lintelLfOverride = Math.max(0, num(els.lintelLfOverride.value));
+  const lintelLF = lintelLfOverride > 0 ? lintelLfOverride : lintelLfCalc;
+  const angleIronCost = lintelLF * num(els.angleCostPerFt.value);
+
+  // Archways wood
+  const archQty = Math.max(0, num(els.archQty.value));
+  const archWoodPer = Math.max(0, num(els.archWoodPerQty.value));
+  const archWoodCost = archQty * archWoodPer;
+
   // Equipment & totals
   const estDays = Math.max(1, days);
   const equipmentCost = estDays * (num(els.scaffoldPerDay.value) + num(els.mixerPerDay.value));
   const laborCost = calendarHours * num(els.laborRate.value) * crew;
-  const materialsSubtotal = materialUnitsCost + mortarCost + rebarCost + groutCost + tiesCost + flashingCost + controlJointCost;
+  const materialsSubtotal = materialUnitsCost + mortarCost + rebarCost + groutCost + tiesCost + flashingCost + controlJointCost + angleIronCost + archWoodCost;
   const directSubtotal = materialsSubtotal + laborCost + equipmentCost + num(els.deliveryFee.value);
   const markup = directSubtotal * (num(els.markupPct.value)/100);
   const total = directSubtotal + markup;
@@ -344,6 +399,8 @@ function recalc() {
     q.push(cardKV("Flashing", fmt(flashingLF) + " LF"));
     q.push(cardKV("Control joints", fmt(controlJointLF) + " LF"));
   }
+  q.push(cardKV("Angle iron (lintels)", fmt(lintelLF) + " LF"));
+  q.push(cardKV("Archways", fmt(archQty) + " qty"));
   q.push(cardKV("Labor (crew hours)", fmt(calendarHours)));
   q.push(cardKV("Estimated days", fmt(Math.max(1, days))));
   quantities.innerHTML = q.join("");
@@ -351,6 +408,8 @@ function recalc() {
   // Render costs
   const c = [];
   c.push(row("Materials", money(materialsSubtotal)));
+  c.push(`<div class="hint pl-2">• Angle iron: ${fmt(lintelLF)} LF @ ${money(num(els.angleCostPerFt.value))} = ${money(angleIronCost)} (included)</div>`);
+  c.push(`<div class="hint pl-2">• Arch wood: ${fmt(archQty)} @ ${money(archWoodPer)} = ${money(archWoodCost)} (included)</div>`);
   c.push(row("Labor", money(laborCost)));
   c.push(row("Equipment", money(equipmentCost)));
   c.push(row("Delivery", money(num(els.deliveryFee.value))));
@@ -361,7 +420,7 @@ function recalc() {
   costs.innerHTML = c.join("");
 
   // Persist in window for CSV
-  window.__calc = { grossArea, unitsWithWaste, mortarBags, rebarFt, groutYd3, horizReinfFt, ties, flashingLF, controlJointLF, calendarHours, days, materialsSubtotal, laborCost, equipmentCost, directSubtotal, markup, total };
+  window.__calc = { grossArea, unitsWithWaste, mortarBags, rebarFt, groutYd3, horizReinfFt, ties, flashingLF, controlJointLF, lintelLF, archQty, calendarHours, days, materialsSubtotal, laborCost, equipmentCost, directSubtotal, markup, total, angleIronCost, archWoodCost };
 }
 
 function cardKV(label, value) {
@@ -407,6 +466,11 @@ exportCsvBtn.addEventListener("click", () => {
     rows.push(["Flashing (LF)", fmt(calc.flashingLF)]);
     rows.push(["Control joints (LF)", fmt(calc.controlJointLF)]);
   }
+  rows.push(["Angle iron LF", fmt(calc.lintelLF)]);
+  rows.push(["Angle iron cost", money(calc.angleIronCost)]);
+  rows.push(["Archways (qty)", fmt(calc.archQty)]);
+  rows.push(["Wood per arch ($)", money(num(els.archWoodPerQty.value))]);
+  rows.push(["Arch wood cost", money(calc.archWoodCost)]);
   rows.push(["Labor hours (crew)", fmt(calc.calendarHours)]);
   rows.push(["Estimated days", fmt(calc.days)]);
   rows.push(["Materials subtotal", money(calc.materialsSubtotal)]);
